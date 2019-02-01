@@ -18,10 +18,10 @@
   },
   "removeFields": ["List", "with", "all", "fieldnames", "which", "should", "not", "inserted", "as", "a", "property"],
   "removeFieldsByValue": {
-    "match": {
+    "match": { // The line[fielname] is not allowed to have this value, then the line would be removed
       "fieldname": "value"
     },
-    "noMath": {
+    "noMath": { // The line[fieldname] should have exact this value, otherwise remove this line
       "fieldname": "value"
     }
   }

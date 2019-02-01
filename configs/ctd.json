@@ -30,13 +30,13 @@
       }
     }
   },
-  "removeFields": ["List", "with", "all", "fieldnames", "which", "should", "not", "inserted", "as", "a", "property"],
+  "removeFields": ["pubmedids", "with", "all", "fieldnames", "which", "should", "not", "inserted", "as", "a", "property"],
   "removeFieldsByValue": {
     "match": {
-      "fieldname": "value"
+
     },
-    "noMath": {
-      "fieldname": "value"
+    "noMatch": {
+      "organism": "Homo sapiens"
     }
   }
 }
