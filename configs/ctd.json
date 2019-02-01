@@ -1,0 +1,42 @@
+{
+  "file": "./csv/CTD_pheno_term_ixns.csv",
+  "database": {
+    "uri": "neo4juri",
+    "user": "username for database",
+    "pw": "password for database"
+  },
+  "fields": [
+    "chemicalname",
+    "chemicalid",
+    "casrn",
+    "phenotypename",
+    "phenotypeid",
+    "comentionedterms",
+    "organism",
+    "organismid",
+    "interaction",
+    "interactionactions",
+    "anatomyterms",
+    "inferencegenesymbols",
+    "pubmedids"
+  ],
+  "relations": {
+    "relationname": {
+      "A-name": {
+        "fieldname": "field-value"
+      },
+      "B-name": {
+        "fieldname": "field-value"
+      }
+    }
+  },
+  "removeFields": ["List", "with", "all", "fieldnames", "which", "should", "not", "inserted", "as", "a", "property"],
+  "removeFieldsByValue": {
+    "match": {
+      "fieldname": "value"
+    },
+    "noMath": {
+      "fieldname": "value"
+    }
+  }
+}
