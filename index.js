@@ -100,6 +100,8 @@ function filterObject(object, config) {
 }
 
 async function createSQL (line, config, driver) {
+    // ToDo: Eigentlich muesste zuerst ueber alle Relationen gegangen werden und die Values zwischengespeichert werden, damit tatsaechlich alle Relationsattribute bei allen Relationen entfernt wurden.
+    // ToDo: Beruecksichtige: aFieldVal und bFieldVal koennen auch Listen sein. In diesem Fall muessen alle moeglichen Konstellationen iteriert werden. aFieldVal[0] -> bFieldVal, aFieldVal[1] -> bFieldVal usw.
     for(var relationName in config.relations) {
         // Definine all relation values
         let relation = config.relations[relationName];
