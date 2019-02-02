@@ -7,12 +7,13 @@
   },
   "fields": ["List", "with", "all", "Fields", "of", "the", "csv", "file"],
   "relations": {
+    // Create Relation: MATCH (a:nameA),(b:nameB) WHERE a.fieldnameA = {properties[fieldValueA]} AND b.fieldnameB = {properties[fieldValueB]} CREATE (a)-[r:relationname {properties}]->(b) RETURN r
     "relationname": {
-      "A-name": {
-        "fieldname": "field-value"
+      "nameA": {
+        "fieldnameA": "fieldValueA"
       },
-      "B-name": {
-        "fieldname": "field-value"
+      "nameB": {
+        "fieldnameB": "fieldValueB"
       }
     }
   },

@@ -1,9 +1,9 @@
 {
   "file": "./csv/CTD_pheno_term_ixns.csv",
   "database": {
-    "uri": "neo4juri",
-    "user": "username for database",
-    "pw": "password for database"
+    "uri": "bolt://localhost:7687",
+    "user": "neo4j",
+    "pw": "neo4j42"
   },
   "fields": [
     "chemicalname",
@@ -21,16 +21,16 @@
     "pubmedids"
   ],
   "relations": {
-    "relationname": {
-      "A-name": {
-        "fieldname": "field-value"
+    "phenotype": {
+      "CTDchemical": {
+        "chemical_id": "chemicalid"
       },
-      "B-name": {
-        "fieldname": "field-value"
+      "CTDGO": {
+        "go_id": "phenotypeid"
       }
     }
   },
-  "removeFields": ["pubmedids", "with", "all", "fieldnames", "which", "should", "not", "inserted", "as", "a", "property"],
+  "removeFields": ["chemicalname", "casrn", "phenotypename"],
   "removeFieldsByValue": {
     "match": {
 

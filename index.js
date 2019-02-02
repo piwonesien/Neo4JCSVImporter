@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const neo4j = require('neo4j-driver').v1;
 const configFolder = "./configs/"
 
 
@@ -74,7 +75,8 @@ function filterObject(object, config) {
         delete object[x];
     });
 
-    let removeObject = false
+    let removeObject = false;
+
     // Remove object, if value does not match
     Object.keys(config.removeFieldsByValue.noMatch).forEach((x) => {
         if (object[x] !== config.removeFieldsByValue.noMatch[x]) {
@@ -82,6 +84,7 @@ function filterObject(object, config) {
         }
     });
 
+    // Skip the next filter, because the line should allready removed
     if(removeObject === true) {
         return removeObject;
     }
@@ -96,20 +99,69 @@ function filterObject(object, config) {
     return removeObject;
 }
 
+async function createSQL (line, config, driver) {
+    for(var relationName in config.relations) {
+        // Definine all relation values
+        let relation = config.relations[relationName];
+        let aName = Object.keys(relation)[0];
+        let bName = Object.keys(relation)[1];
+        let a = Object.keys(relation[aName])[0];
+        let aFieldKey = relation[aName][a];
+        let aFieldVal = line[aFieldKey];
+        let b = Object.keys(relation[bName])[0];
+        let bFieldKey = relation[bName][b];
+        let bFieldVal = line[bFieldKey];
+
+        // Remove relation keys from object
+        delete line[aFieldKey];
+        delete line[bFieldKey];
+
+        // Create Neo4J statement
+        let stmt = "MATCH (a:" + aName + "),(b:" + bName + ") WHERE a." + a + " = {aFieldVal} AND b." + b + " = {bFieldVal} CREATE (a)-[r:" + relationName + " {line}]->(b) RETURN r";
+
+        // Neo4J insertion
+        const session = driver.session();
+        const result = await session.run(
+            stmt,
+            {aFieldVal: aFieldVal, bFieldVal: bFieldVal, line: line}
+        );
+        if(typeof result.records[0] === "undefined") {
+            console.log("Error: Relation (" + aName + "." + a+ "=" + aFieldVal+ " -> " + bName + "." + b + "=" + bFieldVal+ ") could not created")
+        }
+
+        // Close session
+        session.close();
+    }
+}
+
+async function insertLines(lines, config, driver) {
+    for(var key in lines) {
+        var line = lines[key];
+        await createSQL(line, config, driver);
+    }
+}
+
+function openSQL(config) {
+    return neo4j.driver(config.database.uri, neo4j.auth.basic(config.database.user, config.database.pw));
+}
+
 /**
  * Convert all files in the configFolder.
  */
 function convertAll() {
     fs.readdir(configFolder, (err, files) => {
         files.forEach(async file => {
+            console.log(file, ": Beginn process for this config file");
             let tmp = fs.readFileSync(path.join(configFolder, file));
             let config = JSON.parse(tmp);
-
             let lines = await readCSV(config);
-            console.log(lines.length)
+            console.log(file, ": Read lines finished. Found ", lines.length, " lines. Start SQL insertion");
+            let driver = openSQL(config);
+            await insertLines(lines, config, driver);
+            driver.close();
+            console.log(file, ": Finished SQL insertion and finished this config file");
         });
     })
 }
 
-convertAll()
-//readCSV("./csv/CTD_pheno_term_ixns.csv");
+convertAll();
