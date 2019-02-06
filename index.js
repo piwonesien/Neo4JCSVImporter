@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const neo4j = require('neo4j-driver').v1;
+const ProgressBar = require('progress');
 const configFolder = "./configs/"
 
 
@@ -119,7 +120,24 @@ async function createSQL (line, config, driver) {
         delete line[bFieldKey];
 
         // Create Neo4J statement
-        let stmt = "MATCH (a:" + aName + "),(b:" + bName + ") WHERE a." + a + " = {aFieldVal} AND b." + b + " = {bFieldVal} CREATE (a)-[r:" + relationName + " {line}]->(b) RETURN r";
+        let stmt = "";
+        if(relation.create) {
+            stmt = "MERGE (a:" + aName + " {" + a + ": {aFieldVal}}) \n" +
+                "MERGE (b:" + bName + " {" + b + ": {bFieldVal}}) \n" +
+                "MERGE (a)-[r:" + relationName + " " +
+                    /*
+                    JSON.stringify would create an object like {"key": "value", ...}
+                    For reasons I can't understand, Neo4J wants an object like {key: "value"} -> replace quotes for keys:
+                    */
+                    JSON.stringify(line)
+                        .replace(/\\"/g,"\uFFFF")
+                        .replace(/\"([^"]+)\":/g,"$1:")
+                        .replace(/\uFFFF/g,"\\\"") +
+                "]->(b) \n" +
+                "RETURN r";
+        } else {
+            stmt = "MATCH (a:" + aName + "),(b:" + bName + ") WHERE a." + a + " = {aFieldVal} AND b." + b + " = {bFieldVal} CREATE (a)-[r:" + relationName + " {line}]->(b) RETURN r";
+        }
 
         // Neo4J insertion
         const session = driver.session();
@@ -136,10 +154,24 @@ async function createSQL (line, config, driver) {
     }
 }
 
+/**
+ * Insert all lines in sql.
+ * ToDo: Maybe it would be better to parallelize this part instead of use await -> use Promise.all
+ * @param lines
+ * @param config
+ * @param driver
+ * @returns {Promise<void>}
+ */
 async function insertLines(lines, config, driver) {
+    let bar = new ProgressBar('  Inserting Lines: [:bar] :rate/lps :percent', {
+        complete: '=',
+        incomplete: ' ',
+        total: lines.length
+    });
     for(var key in lines) {
         var line = lines[key];
         await createSQL(line, config, driver);
+        bar.tick();
     }
 }
 
@@ -153,7 +185,7 @@ function openSQL(config) {
 function convertAll() {
     fs.readdir(configFolder, (err, files) => {
         files.forEach(async file => {
-            console.log(file, ": Beginn process for this config file");
+            console.log(file, ": Begin process for this config file");
             let tmp = fs.readFileSync(path.join(configFolder, file));
             let config = JSON.parse(tmp);
             let lines = await readCSV(config);

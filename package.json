@@ -9,6 +9,7 @@
   "author": "Steffen Micha Voße",
   "license": "MIT",
   "dependencies": {
-    "neo4j-driver": "^1.7.2"
+    "neo4j-driver": "^1.7.2",
+    "progress": "^2.0.3"
   }
 }
