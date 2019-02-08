@@ -102,9 +102,7 @@ function filterObject(object, config) {
 }
 
 async function createSQL (line, config, driver, fileStream) {
-    // ToDo: Eigentlich muesste zuerst ueber alle Relationen gegangen werden und die Values zwischengespeichert werden, damit tatsaechlich alle Relationsattribute bei allen Relationen entfernt wurden.
-    // ToDo: Beruecksichtige: aFieldVal und bFieldVal koennen auch Listen sein. In diesem Fall muessen alle moeglichen Konstellationen iteriert werden. aFieldVal[0] -> bFieldVal, aFieldVal[1] -> bFieldVal usw.
-    for(var relationName in config.relations) {
+    for(let relationName in config.relations) {
         // Define all relation values
         let relation = config.relations[relationName];
         let override = relation.create;
@@ -124,43 +122,62 @@ async function createSQL (line, config, driver, fileStream) {
         delete line[aFieldKey];
         delete line[bFieldKey];
 
-        // Create Neo4J statement
-        let stmt = "";
-        if(override) {
-            // Create relation A-[relation]->B and create nodes A & B if they are not existing
-            stmt = "MERGE (a:" + aName + " {" + a + ": {aFieldVal}}) \n" +
-                "MERGE (b:" + bName + " {" + b + ": {bFieldVal}}) \n" +
-                "MERGE (a)-[r:" + relationName + " " +
-                    /*
-                    JSON.stringify would create an object like {"key": "value", ...}
-                    For reasons I can't understand, Neo4J wants an object like {key: "value"} -> replace quotes for keys:
-                    */
-                    JSON.stringify(line)
-                        .replace(/\\"/g,"\uFFFF")
-                        .replace(/\"([^"]+)\":/g,"$1:")
-                        .replace(/\uFFFF/g,"\\\"") +
-                "]->(b) \n";
+        // If aFieldVal is a list with values -> create for each entry of the list a relation (bFieldVal check is in insert4Neo)
+        if(typeof aFieldVal === "object") {
+            for(let x in aFieldVal) {
+                await insert4Neo(relationName, aName, bName, a, b, aFieldVal[x], bFieldVal, line, override, driver, fileStream);
+            }
         } else {
-            // Create only the relation A-[relation]->B and show console output, if line could not created
-            stmt = "MATCH (a:" + aName + "),(b:" + bName + ") WHERE a." + a + " = {aFieldVal} AND b." + b + " = {bFieldVal} CREATE (a)-[r:" + relationName + " {line}]->(b) RETURN r";
+            await insert4Neo(relationName, aName, bName, a, b, aFieldVal, bFieldVal, line, override, driver, fileStream);
         }
-
-        // Neo4J insertion
-        const session = driver.session();
-        const result = await session.run(
-            stmt,
-            {aFieldVal: aFieldVal, bFieldVal: bFieldVal, line: line}
-        );
-
-        // Log missing lines -> only possible, if lines should not created
-        if(!override && typeof result.records[0] === "undefined") {
-            console.log("  Error: Relation (" + aName + "." + a+ "=" + aFieldVal+ " -> " + bName + "." + b + "=" + bFieldVal+ ") could not created");
-            fileStream.write(relationName +"," + aFieldVal + "," + bFieldVal + "\n");
-        }
-
-        // Close session
-        session.close();
     }
+}
+
+async function insert4Neo(relationName, aName, bName, a, b, aFieldVal, bFieldVal, line, override, driver, fileStream) {
+    // If bFieldVal is a list with values -> create for each entry of the list a relation (aFieldVal check is in createSQL)
+    if(typeof bFieldVal === "object") {
+        for(let x in bFieldVal) {
+            await insert4Neo(relationName, aName, bName, a, b, aFieldVal, bFieldVal[x], line, override, driver, fileStream)
+        }
+        return;
+    }
+
+    // Create Neo4J statement
+    let stmt = "";
+    if(override) {
+        // Create relation A-[relation]->B and create nodes A & B if they are not existing
+        stmt = "MERGE (a:" + aName + " {" + a + ": {aFieldVal}}) \n" +
+            "MERGE (b:" + bName + " {" + b + ": {bFieldVal}}) \n" +
+            "MERGE (a)-[r:" + relationName + " " +
+            /*
+            JSON.stringify would create an object like {"key": "value", ...}
+            For reasons I can't understand, Neo4J wants an object like {key: "value"} -> replace quotes for keys:
+            */
+            JSON.stringify(line)
+                .replace(/\\"/g,"\uFFFF")
+                .replace(/\"([^"]+)\":/g,"$1:")
+                .replace(/\uFFFF/g,"\\\"") +
+            "]->(b) \n";
+    } else {
+        // Create only the relation A-[relation]->B and show console output, if line could not created
+        stmt = "MATCH (a:" + aName + "),(b:" + bName + ") WHERE a." + a + " = {aFieldVal} AND b." + b + " = {bFieldVal} CREATE (a)-[r:" + relationName + " {line}]->(b) RETURN r";
+    }
+
+    // Neo4J insertion
+    const session = driver.session();
+    const result = await session.run(
+        stmt,
+        {aFieldVal: aFieldVal, bFieldVal: bFieldVal, line: line}
+    );
+
+    // Log missing lines -> only possible, if lines should not created
+    if(!override && typeof result.records[0] === "undefined") {
+        console.log("  Error: Relation (" + aName + "." + a+ "=" + aFieldVal+ " -> " + bName + "." + b + "=" + bFieldVal+ ") could not created");
+        fileStream.write(relationName +"," + aFieldVal + "," + bFieldVal + "\n");
+    }
+
+    // Close session
+    session.close();
 }
 
 /**
