@@ -10,7 +10,7 @@ const configFolder = "./configs/"
  * Use the config file, to modify the format.
  * Async function! - Use await to get the list
  * @param config Configuration file object
- * @returns {Promise<any>} Promise or list with json of each line
+ * @returns {Promise<list>} Promise or list with json of each line
  */
 async function readCSV(config) {
     // Open file stream
@@ -100,12 +100,14 @@ function filterObject(object, config) {
     return removeObject;
 }
 
-async function createSQL (line, config, driver) {
+async function createSQL (line, config, driver, fileStream) {
     // ToDo: Eigentlich muesste zuerst ueber alle Relationen gegangen werden und die Values zwischengespeichert werden, damit tatsaechlich alle Relationsattribute bei allen Relationen entfernt wurden.
     // ToDo: Beruecksichtige: aFieldVal und bFieldVal koennen auch Listen sein. In diesem Fall muessen alle moeglichen Konstellationen iteriert werden. aFieldVal[0] -> bFieldVal, aFieldVal[1] -> bFieldVal usw.
     for(var relationName in config.relations) {
-        // Definine all relation values
+        // Define all relation values
         let relation = config.relations[relationName];
+        let override = relation.create;
+        delete relation.create;
         let aName = Object.keys(relation)[0];
         let bName = Object.keys(relation)[1];
         let a = Object.keys(relation[aName])[0];
@@ -121,7 +123,8 @@ async function createSQL (line, config, driver) {
 
         // Create Neo4J statement
         let stmt = "";
-        if(relation.create) {
+        if(override) {
+            // Create relation A-[relation]->B and create nodes A & B if they are not existing
             stmt = "MERGE (a:" + aName + " {" + a + ": {aFieldVal}}) \n" +
                 "MERGE (b:" + bName + " {" + b + ": {bFieldVal}}) \n" +
                 "MERGE (a)-[r:" + relationName + " " +
@@ -133,9 +136,9 @@ async function createSQL (line, config, driver) {
                         .replace(/\\"/g,"\uFFFF")
                         .replace(/\"([^"]+)\":/g,"$1:")
                         .replace(/\uFFFF/g,"\\\"") +
-                "]->(b) \n" +
-                "RETURN r";
+                "]->(b) \n";
         } else {
+            // Create only the relation A-[relation]->B and show console output, if line could not created
             stmt = "MATCH (a:" + aName + "),(b:" + bName + ") WHERE a." + a + " = {aFieldVal} AND b." + b + " = {bFieldVal} CREATE (a)-[r:" + relationName + " {line}]->(b) RETURN r";
         }
 
@@ -145,8 +148,11 @@ async function createSQL (line, config, driver) {
             stmt,
             {aFieldVal: aFieldVal, bFieldVal: bFieldVal, line: line}
         );
-        if(typeof result.records[0] === "undefined") {
-            console.log("Error: Relation (" + aName + "." + a+ "=" + aFieldVal+ " -> " + bName + "." + b + "=" + bFieldVal+ ") could not created")
+
+        // Log missing lines -> only possible, if lines should not created
+        if(!override && typeof result.records[0] === "undefined") {
+            console.log("  Error: Relation (" + aName + "." + a+ "=" + aFieldVal+ " -> " + bName + "." + b + "=" + bFieldVal+ ") could not created");
+            fileStream.write(relationName +"," + aFieldVal + "," + bFieldVal + "\n");
         }
 
         // Close session
@@ -156,23 +162,32 @@ async function createSQL (line, config, driver) {
 
 /**
  * Insert all lines in sql.
- * ToDo: Maybe it would be better to parallelize this part instead of use await -> use Promise.all
- * @param lines
- * @param config
- * @param driver
+ * @param lines all lines list
+ * @param config current config file
+ * @param driver Neo4J driver
  * @returns {Promise<void>}
  */
 async function insertLines(lines, config, driver) {
+    // Init progress bar
     let bar = new ProgressBar('  Inserting Lines: [:bar] :rate/lps :percent', {
         complete: '=',
         incomplete: ' ',
         total: lines.length
     });
+
+    // Open filestream for new csv file with all missing nodes
+    fs.mkdirSync("./missing/");
+    let fileStream = fs.createWriteStream("./missing/missingData_" + path.basename(config.file, '.csv')+ ".csv", {flags:'a'});
+    fileStream.write("RelationName,AFieldValue,BFieldValue\n");
+
+    // Insert all lines
     for(var key in lines) {
         var line = lines[key];
-        await createSQL(line, config, driver);
+        await createSQL(line, config, driver, fileStream );
         bar.tick();
     }
+
+    fileStream.end();
 }
 
 function openSQL(config) {
@@ -185,15 +200,15 @@ function openSQL(config) {
 function convertAll() {
     fs.readdir(configFolder, (err, files) => {
         files.forEach(async file => {
-            console.log(file, ": Begin process for this config file");
+            console.log(new Date().toLocaleString(), " [", file, "]: Begin process for this config file");
             let tmp = fs.readFileSync(path.join(configFolder, file));
             let config = JSON.parse(tmp);
             let lines = await readCSV(config);
-            console.log(file, ": Read lines finished. Found ", lines.length, " lines. Start SQL insertion");
+            console.log(new Date().toLocaleString(), " [", file, "]: Read lines finished. Found ", lines.length, " lines. Start SQL insertion");
             let driver = openSQL(config);
             await insertLines(lines, config, driver);
             driver.close();
-            console.log(file, ": Finished SQL insertion and finished this config file");
+            console.log(new Date().toLocaleString(), " [", file, "]: Finished SQL insertion and finished this config file");
         });
     })
 }

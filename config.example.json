@@ -14,7 +14,8 @@
       },
       "nameB": {
         "fieldnameB": "fieldValueB"
-      }
+      },
+      "create": false // set to true, if you want to create not existing A or B nodes
     }
   },
   "removeFields": ["List", "with", "all", "fieldnames", "which", "should", "not", "inserted", "as", "a", "property"],
