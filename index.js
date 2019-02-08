@@ -2,7 +2,8 @@ const fs = require("fs");
 const path = require("path");
 const neo4j = require('neo4j-driver').v1;
 const ProgressBar = require('progress');
-const configFolder = "./configs/"
+const configFolder = "./configs/";
+const missingFolder = "./missing/";
 
 
 /**
@@ -107,9 +108,11 @@ async function createSQL (line, config, driver, fileStream) {
         // Define all relation values
         let relation = config.relations[relationName];
         let override = relation.create;
+        // Delete this entry to get always the correct A and B keys
         delete relation.create;
         let aName = Object.keys(relation)[0];
         let bName = Object.keys(relation)[1];
+        relation.create = override;
         let a = Object.keys(relation[aName])[0];
         let aFieldKey = relation[aName][a];
         let aFieldVal = line[aFieldKey];
@@ -176,7 +179,9 @@ async function insertLines(lines, config, driver) {
     });
 
     // Open filestream for new csv file with all missing nodes
-    fs.mkdirSync("./missing/");
+    if (!fs.existsSync(missingFolder)){
+        fs.mkdirSync(missingFolder);
+    }
     let fileStream = fs.createWriteStream("./missing/missingData_" + path.basename(config.file, '.csv')+ ".csv", {flags:'a'});
     fileStream.write("RelationName,AFieldValue,BFieldValue\n");
 

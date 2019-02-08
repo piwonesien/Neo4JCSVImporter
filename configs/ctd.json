@@ -28,7 +28,7 @@
       "CTDGO": {
         "go_id": "phenotypeid"
       },
-      "create": false
+      "create": true
     }
   },
   "removeFields": ["chemicalname", "casrn", "phenotypename"],
