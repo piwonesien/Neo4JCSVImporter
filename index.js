@@ -100,8 +100,33 @@ function filterObject(object, config) {
 
     return removeObject;
 }
+async function complexRelation(relation, line, driver) {
+    // Skip insertion if config values not pass
+    if(!relation.$insert(line)) {
+        return;
+    }
+    let stmt = relation.$sql;
+    let vars = stmt.match(/{{\w+}}/gi);
+    for(var i in vars) {
+        let tmp = vars[i].replace("{{", "").replace("}}", "");
+        stmt = stmt.replace(vars[i], relation[tmp](line));
+    }
+
+    console.log('Statement: ', line.chemicalname)
+    /*const session = driver.session();
+    const result = await session.run(
+        relation.$sql, // ToDo: Replace all {{elements}} with values
+        relation.$chipher
+    );
+    session.close();*/
+}
 
 async function createSQL (line, config, driver, fileStream) {
+    for(let id in config.complexRelations) {
+        let relation = config.complexRelations[id];
+        await complexRelation(relation, line, driver);
+    }
+
     for(let relationName in config.relations) {
         // Define all relation values
         let relation = config.relations[relationName];
@@ -223,8 +248,7 @@ function convertAll() {
     fs.readdir(configFolder, (err, files) => {
         files.forEach(async file => {
             console.log(new Date().toLocaleString(), " [", file, "]: Begin process for this config file");
-            let tmp = fs.readFileSync(path.join(configFolder, file));
-            let config = JSON.parse(tmp);
+            var config = require('./' + path.join(configFolder, file));
             let lines = await readCSV(config);
             console.log(new Date().toLocaleString(), " [", file, "]: Read lines finished. Found ", lines.length, " lines. Start SQL insertion");
             let driver = openSQL(config);
