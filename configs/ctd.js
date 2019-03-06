@@ -33,27 +33,37 @@ module.exports = {
   },
   "complexRelations": [
     {
-      $sql: `MATCH (a:Chemical)- []->(:CTDchemical)-[r:phenotype]->(b:CTDGO)-[:equal_to_CTD_go ]-(bc 
-              WHERE a.chemical_id = {chemicalid} AND b.go_id = {phenotypeid} 
-              CREATE (a)-[r:{{relationtype}}]->(c) RETURN r`,
+      $sql: `MATCH (a:Chemical)-[]->(b:CTDchemical)-[r:phenotype]->(c:CTDGO)-[:equal_to_CTD_go ]-(d) 
+             WHERE b.chemical_id = {chemicalid} AND c.go_id = {phenotypeid} 
+             MERGE (a)-[:{{relationtype}}]->(d)`, // Otherwise create
       "relationtype": (line) => {
-        console.log('test', line);
+
         let aName = line.chemicalname;
         let bName = line.phenotypename;
-        let interaction = line.interaction; // Array
+        let interaction = line.interactionactions; // Array
 
         if(interaction.includes("affects^phenotype")) {
           return "associates"
         }
+        if(interaction.includes("phenotype^increase") || interaction.includes("increases^phenotype")) {
+          return "increase"
+        }
 
-
-
-
-        return "associates"
+        if(interaction.includes("phenotype^decrease") || interaction.includes("decreases^phenotype")) {
+          return "decrease"
+        }
       },
       // Must return a boolean
       $insert: (line) => {
-        return true
+        // Line should only inserted, if interactionactions are valid
+        return !(!line.interactionactions.includes("decreases^phenotype") &&
+            !line.interactionactions.includes("phenotype^decrease") &&
+            line.interactionactions !== "decreases^phenotype" &&
+            !line.interactionactions.includes("increases^phenotype") &&
+            !line.interactionactions.includes("phenotype^increase") &&
+            line.interactionactions !== "increases^phenotype" &&
+            !line.interactionactions.includes("affects^phenotype") &&
+            line.interactionactions !== "affects^phenotype");
       },
       // Must return a sql chiper json
       $chipher: (line) => {

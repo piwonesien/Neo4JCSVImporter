@@ -105,6 +105,8 @@ async function complexRelation(relation, line, driver) {
     if(!relation.$insert(line)) {
         return;
     }
+
+    // Load sql statement and replace all {{values}} with the relation entry
     let stmt = relation.$sql;
     let vars = stmt.match(/{{\w+}}/gi);
     for(var i in vars) {
@@ -112,21 +114,23 @@ async function complexRelation(relation, line, driver) {
         stmt = stmt.replace(vars[i], relation[tmp](line));
     }
 
-    console.log('Statement: ', line.chemicalname)
-    /*const session = driver.session();
+    // Run SQL statement
+    const session = driver.session();
     const result = await session.run(
-        relation.$sql, // ToDo: Replace all {{elements}} with values
-        relation.$chipher
+        stmt,
+        relation.$chipher(line)
     );
-    session.close();*/
+    session.close();
 }
 
 async function createSQL (line, config, driver, fileStream) {
+    // Create complex relations
     for(let id in config.complexRelations) {
         let relation = config.complexRelations[id];
         await complexRelation(relation, line, driver);
     }
 
+    // Create simple relations
     for(let relationName in config.relations) {
         // Define all relation values
         let relation = config.relations[relationName];
