@@ -38,19 +38,50 @@ module.exports = {
              MERGE (a)-[:{{relationtype}}]->(d)`, // Otherwise create
       "relationtype": (line) => {
 
-        let aName = line.chemicalname;
-        let bName = line.phenotypename;
+        let aName = line.chemicalname.trim();
+        let bName = line.phenotypename.trim();
         let interaction = line.interactionactions; // Array
 
+        // We want only the content in brackets
+        let actions = line.interaction.match(/\[.+]/);
+        if(actions === null) {
+          return "associates";
+        }
+        actions = actions[0].trim();
+        actions = actions.substring(1, actions.length -1);
+
+        let actionChecker = (action) => {
+          // Check if both names are in the action
+          if(action.includes(aName) && action.includes(bName)) {
+            let re = new RegExp (
+                aName.replace("(", "\\(").replace(")", "\\)") +
+                "(.*)" +
+                bName.replace("(", "\\(").replace(")", "\\)") );
+            let match = re.exec(action);
+            // aName and bName has a wrong order -> no real relation
+            if(match === null) {
+              return false;
+            }
+            match = match[1];
+            if(match.includes("[") || match.includes("]") || match.includes("and")) {
+              return false;
+            }
+            return true;
+          } else {
+            return false;
+          }
+        };
+        actionChecker(actions);
+
         if(interaction.includes("affects^phenotype")) {
-          return "associates"
+          return "associates";
         }
         if(interaction.includes("phenotype^increase") || interaction.includes("increases^phenotype")) {
-          return "increase"
+          return actionChecker(actions) ? "increase" : "associates"
         }
 
         if(interaction.includes("phenotype^decrease") || interaction.includes("decreases^phenotype")) {
-          return "decrease"
+          return actionChecker(actions) ? "decrease" : "associates"
         }
       },
       // Must return a boolean
