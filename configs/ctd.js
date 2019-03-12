@@ -35,7 +35,9 @@ module.exports = {
     {
       $sql: `MATCH (a:Chemical)-[]->(b:CTDchemical)-[r:phenotype]->(c:CTDGO)-[:equal_to_CTD_go ]-(d) 
              WHERE b.chemical_id = {chemicalid} AND c.go_id = {phenotypeid} 
-             MERGE (a)-[:{{relationtype}}]->(d)`, // Otherwise create
+             MERGE (a)-[n:{{relationtype}}]->(d)
+             ON CREATE SET n={line}
+             ON MATCH SET n+={line}`,
       "relationtype": (line) => {
 
         let aName = line.chemicalname.trim();
@@ -43,7 +45,8 @@ module.exports = {
         let interaction = line.interactionactions; // Array
 
         // We want only the content in brackets
-        let actions = line.interaction.match(/\[.+]/);
+        //let actions = line.interaction.match(/\[.+]/);
+        let actions = [line.interaction];
         if(actions === null) {
           return "associates";
         }
@@ -54,9 +57,9 @@ module.exports = {
           // Check if both names are in the action
           if(action.includes(aName) && action.includes(bName)) {
             let re = new RegExp (
-                aName.replace("(", "\\(").replace(")", "\\)") +
+                aName.replace(/\(/g, "\\(").replace(/\)/g, "\\)") +
                 "(.*)" +
-                bName.replace("(", "\\(").replace(")", "\\)") );
+                bName.replace(/\(/g, "\\(").replace(/\)/g, "\\)") );
             let match = re.exec(action);
             // aName and bName has a wrong order -> no real relation
             if(match === null) {
@@ -98,7 +101,7 @@ module.exports = {
       },
       // Must return a sql chiper json
       $chipher: (line) => {
-        return {chemicalid: line.chemicalid, phenotypeid: line.phenotypeid}
+        return {chemicalid: line.chemicalid, phenotypeid: line.phenotypeid, line: line}
       }
     }
   ],
