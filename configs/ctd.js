@@ -28,7 +28,7 @@ module.exports = {
       "CTDGO": {
         "go_id": "phenotypeid"
       },
-      "create": false
+      "create": true
     }
   },
   "complexRelations": [
@@ -51,7 +51,7 @@ module.exports = {
           return "associates";
         }
         actions = actions[0].trim();
-        actions = actions.substring(1, actions.length -1);
+        // actions = actions.substring(1, actions.length -1);
 
         let actionChecker = (action) => {
           // Check if both names are in the action
@@ -101,7 +101,12 @@ module.exports = {
       },
       // Must return a sql chiper json
       $chipher: (line) => {
-        return {chemicalid: line.chemicalid, phenotypeid: line.phenotypeid, line: line}
+        let tmpLine = {};
+        Object.assign(tmpLine, line);
+        delete tmpLine.chemicalid;
+        delete tmpLine.phenotypeid;
+
+        return {chemicalid: line.chemicalid, phenotypeid: line.phenotypeid, line: tmpLine}
       }
     }
   ],
