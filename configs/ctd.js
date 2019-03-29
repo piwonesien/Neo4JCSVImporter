@@ -106,6 +106,13 @@ module.exports = {
         delete tmpLine.chemicalid;
         delete tmpLine.phenotypeid;
 
+        // make all values to lists
+        Object.keys(tmpLine).map(key =>  {
+          if(typeof tmpLine[key] !== 'object') {
+            tmpLine[key] = [tmpLine[key]];
+          }
+        });
+
         return {chemicalid: line.chemicalid, phenotypeid: line.phenotypeid, line: tmpLine}
       }
     }
