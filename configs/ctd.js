@@ -37,7 +37,15 @@ module.exports = {
              WHERE b.chemical_id = {chemicalid} AND c.go_id = {phenotypeid} 
              MERGE (a)-[n:{{relationtype}}]->(d)
              ON CREATE SET n={line}
-             ON MATCH SET n+={line}`,
+             ON MATCH SET {{matchset}}`,
+      "matchset": (line) => {
+        let stmt = "";
+
+        Object.keys(line).map((key) => {
+          stmt += stmt === "" ? "n."+key+" = n."+key+" + {" + key + "}" : ", n."+key+" = n."+key+" + {" + key + "}";
+        });
+        return stmt;
+      },
       "relationtype": (line) => {
 
         let aName = line.chemicalname.trim();
@@ -113,7 +121,7 @@ module.exports = {
           }
         });
 
-        return {chemicalid: line.chemicalid, phenotypeid: line.phenotypeid, line: tmpLine}
+        return Object.assign({}, {chemicalid: line.chemicalid, phenotypeid: line.phenotypeid, line: tmpLine}, tmpLine)
       }
     }
   ],
