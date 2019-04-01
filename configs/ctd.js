@@ -28,7 +28,7 @@ module.exports = {
       "CTDGO": {
         "go_id": "phenotypeid"
       },
-      "create": true
+      "create": false
     }
   },
   "complexRelations": [
@@ -37,15 +37,12 @@ module.exports = {
              WHERE b.chemical_id = {chemicalid} AND c.go_id = {phenotypeid} 
              MERGE (a)-[n:{{relationtype}}]->(d)
              ON CREATE SET n={line}
-             ON MATCH SET {{matchset}}`,
-      "matchset": (line) => {
-        let stmt = "";
-
-        Object.keys(line).map((key) => {
-          stmt += stmt === "" ? "n."+key+" = n."+key+" + {" + key + "}" : ", n."+key+" = n."+key+" + {" + key + "}";
-        });
-        return stmt;
-      },
+             ON MATCH SET n.pubmedids = 
+               CASE 
+                WHEN {pubmedid} IN n.pubmedids 
+                THEN n.pubmedids
+                ELSE n.pubmedids + {pubmedids}
+               END`,
       "relationtype": (line) => {
 
         let aName = line.chemicalname.trim();
@@ -114,14 +111,13 @@ module.exports = {
         delete tmpLine.chemicalid;
         delete tmpLine.phenotypeid;
 
-        // make all values to lists
-        Object.keys(tmpLine).map(key =>  {
-          if(typeof tmpLine[key] !== 'object') {
-            tmpLine[key] = [tmpLine[key]];
-          }
-        });
+        // Make Pubmedids to a list, so that we can add elements later
+        let pubmed = tmpLine.pubmedids;
+        if(typeof tmpLine.pubmedids === "string") {
+          tmpLine.pubmedids = [tmpLine.pubmedids]
+        }
 
-        return Object.assign({}, {chemicalid: line.chemicalid, phenotypeid: line.phenotypeid, line: tmpLine}, tmpLine)
+        return Object.assign({}, {chemicalid: line.chemicalid, phenotypeid: line.phenotypeid, line: tmpLine, pubmedid: pubmed, pubmedids: tmpLine.pubmedids}, tmpLine)
       }
     }
   ],
